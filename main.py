@@ -192,19 +192,28 @@ if __name__ == "__main__":
 
     # Havriliak-Negami Test
     data = read_csv('input/CPE.csv')
-    b = {'Rhf': (0, 10),
-         'Rlf': (0, 10),
-         'tau': (0, 1000e-6),
+    b = {'Rhf': (0, 1),
+         'Rlf': (0, 1),
+         'tau': (0, 500e-6),
          'alpha': (0, 1),
          'beta': (0, 1),
-         'q': (0, 100e-6)}
+         'q': (100e-6, 100e-6)}
 
-    DE = DifferentialEvolution(b, data, fit='havriliak-negami', max_iter=500)
+    DE = DifferentialEvolution(b, data, fit='havriliak-negami', max_iter=200, pop_size=100)
     DE.solve()
     DE.plot_fitness()
     DE.display_plot_result()
 
-
-
-
-
+    # CapaPure Test
+    # data = read_csv('input/CapaPure.csv')
+    # b = {'Rhf': (0, 1),
+    #      'Rlf': (0, 1),
+    #      'tau': (0, 500e-6),
+    #      'alpha': (1, 1),
+    #      'beta': (0, 1),
+    #      'q': (0, 10e-6)}
+    #
+    # DE = DifferentialEvolution(b, data, fit='havriliak-negami', max_iter=200, pop_size=200)
+    # DE.solve()
+    # DE.plot_fitness()
+    # DE.display_plot_result()
