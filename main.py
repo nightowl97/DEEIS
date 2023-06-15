@@ -7,11 +7,12 @@ import csv
 matplotlib.use('TkAgg')
 
 
-def read_csv(file_name):
+def read_csv(file_name, skip_header=True):
     # Reads csv files that are formatted as feq, z.real, z.imag
     with open(file_name, 'r') as f:
         reader = csv.reader(f, delimiter=',')
-        next(reader) # skip header
+        if skip_header:
+            next(reader)  # skip header
         data = np.array([[float(row[0]), float(row[1]), float(row[2])] for row in reader])
         freq, real, imag = data[:, 0], data[:, 1], data[:, 2]
         z = real + 1j * imag
@@ -99,7 +100,7 @@ class DifferentialEvolution:
         w = 2 * np.pi * freqs
         z_experimental = self.exp_data[1]
         z_calculated = self.z_from_w(vec, w)
-        delta = np.linalg.norm((z_experimental - z_calculated) / np.abs(z_experimental))  # Scale by magnitude
+        delta = np.linalg.norm((z_experimental - z_calculated))  # Scale by magnitude
         return np.sqrt(np.mean(delta ** 2))
 
     def z_from_w(self, vec, w):
@@ -107,14 +108,37 @@ class DifferentialEvolution:
             return self.warburg(vec, w)
         elif self.fit == 'havriliak-negami':
             return self.havriliak_negami(vec, w)
+        elif self.fit == 'cpe_parallel':
+            return self.cpe_parallel(vec, w)
+        elif self.fit == 'h_n_cpe_parallel':
+            return self.h_n_cpe_parallel(vec, w)
         else:
             raise ValueError("Invalid fit type")
 
     @staticmethod
     def havriliak_negami(vec, w):
         # Returns the impedance of a Havriliak-Negami circuit
-        rhf, rlf, tau, alpha, beta, q = vec
-        z = rhf + (rlf - rhf) / ((1 + (1j * w * tau) ** alpha) ** beta) + (1 / (q * (1j * w) ** alpha))
+        rhf, rlf, tau, alpha, nu, beta, q = vec
+        z = rhf + (rlf - rhf) / ((1 + (1j * w * tau) ** nu) ** beta) + (1 / (q * (1j * w) ** alpha))
+        return z
+
+    @staticmethod
+    def cpe_parallel(vec, w):
+        q1, alpha1, r = vec
+        # Two CPEs in parallel with a resistor in series
+        """  z1  
+        --------<<-------
+        |               |
+        ---------/\/\----
+            z2     R
+        """
+        z = 1 / ((q1 * (1j * w) ** alpha1) + 1 / r)
+        return z
+
+    @staticmethod
+    def h_n_cpe_parallel(vec, w):
+        rhf, rlf, tau, alpha, nu, beta, q, q1, alpha1, r = vec
+        z = rhf + (rlf - rhf) / ((1 + (1j * w * tau) ** nu) ** beta) + (1 / (q * (1j * w) ** alpha)) + (1 / ((q1 * (1j * w) ** alpha1) + 1 / r))
         return z
 
     @staticmethod
@@ -191,18 +215,19 @@ if __name__ == "__main__":
     # DE.plot_fitness()
 
     # Havriliak-Negami Test
-    data = read_csv('input/CPE.csv')
-    b = {'Rhf': (0, 1),
-         'Rlf': (0, 1),
-         'tau': (0, 500e-6),
-         'alpha': (0, 1),
-         'beta': (0, 1),
-         'q': (100e-6, 100e-6)}
-
-    DE = DifferentialEvolution(b, data, fit='havriliak-negami', max_iter=200, pop_size=100)
-    DE.solve()
-    DE.plot_fitness()
-    DE.display_plot_result()
+    # data = read_csv('input/CPE.csv')
+    # b = {'Rhf': (0, 10),
+    #      'Rlf': (0, 10),
+    #      'tau': (0, 1),
+    #      'alpha': (0, 1),
+    #      'nu': (0, 1),
+    #      'beta': (0, 1),
+    #      'q': (0, 100e-4)}
+    #
+    # DE = DifferentialEvolution(b, data, fit='havriliak-negami', max_iter=200, pop_size=100)
+    # DE.solve()
+    # DE.plot_fitness()
+    # DE.display_plot_result()
 
     # CapaPure Test
     # data = read_csv('input/CapaPure.csv')
@@ -214,6 +239,35 @@ if __name__ == "__main__":
     #      'q': (0, 10e-6)}
     #
     # DE = DifferentialEvolution(b, data, fit='havriliak-negami', max_iter=200, pop_size=200)
+    # DE.solve()
+    # DE.plot_fitness()
+    # DE.display_plot_result()
+
+    # CPE Parallel Test
+    data = read_csv('input/ZLowFreq_salvador_10mM.csv')
+    b = {'q1': (0, 1e-3),  # CPE Part
+         'alpha1': (0, 1),
+         'r': (0, 1e6)}
+
+    DE = DifferentialEvolution(b, data, fit='cpe_parallel', max_iter=300, pop_size=200)
+    DE.solve()
+    DE.plot_fitness()
+    DE.display_plot_result()
+
+    # Full test: Havriliak-Negami + CPE Parallel - Check if conform wqith Rhf 98.8141 and Rlf 163.2486
+    # data = read_csv('input/Z_salvador_full_10mM.csv')
+    # b = {'Rhf': (0, 500),  # Havriliak-Negami Part
+    #      'Rlf': (0, 500),
+    #      'tau': (0, 500e-6),
+    #      'alpha': (0, 1),
+    #      'nu': (0, 1),
+    #      'beta': (0, 1),
+    #      'q': (0, 10e-3),
+    #      'q1': (0, 1e-3),  # CPE Part
+    #      'alpha1': (0, 1),
+    #      'r': (0, 1e6)}
+    #
+    # DE = DifferentialEvolution(b, data, fit='h_n_cpe_parallel', max_iter=300, pop_size=200)
     # DE.solve()
     # DE.plot_fitness()
     # DE.display_plot_result()
